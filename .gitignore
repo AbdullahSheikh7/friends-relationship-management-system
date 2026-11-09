@@ -1,0 +1,27 @@
+# Build output
+bin/
+target/
+*.class
+
+# Local app database (never ship personal data)
+frm_vault.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Logs
+*.log
+
+# IDE metadata
+.project
+.classpath
+build.fxbuild
+.settings/
+.idea/
+.vscode/
+*.iml
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
