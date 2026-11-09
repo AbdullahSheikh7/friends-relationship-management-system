@@ -26,6 +26,7 @@ import frmSystem.pages.views.NotesHubView;
 import frmSystem.pages.views.SettingsView;
 
 import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -33,6 +34,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
@@ -59,6 +61,7 @@ public class RootLayout {
     private final Label friendCount = UtilsUI.pill("0");
     private final Circle birthdayDot = new Circle(4);
     private Runnable refreshCurrent = () -> { };
+    private boolean busy = false;
 
     public RootLayout(Stage primaryStage) {
         this.stage = primaryStage;
@@ -102,8 +105,16 @@ public class RootLayout {
     // ---------- Page navigation ----------
 
     public void show(Page page) {
+        if (busy) {
+            toast("A backup operation is running. The screen stays locked until it finishes.");
+            return;
+        }
         refreshCurrent = () -> setPage(page, buildPage(page));
         refreshCurrent.run();
+    }
+
+    public boolean isBusy() {
+        return busy;
     }
 
     private Node buildPage(Page page) {
@@ -120,6 +131,10 @@ public class RootLayout {
     }
 
     public void showFriendProfile(long friendId) {
+        if (busy) {
+            toast("A backup operation is running. The screen stays locked until it finishes.");
+            return;
+        }
         refreshCurrent = () -> setPage(Page.FRIENDS, new FriendProfileView(this, friendId).build());
         refreshCurrent.run();
     }
@@ -166,6 +181,9 @@ public class RootLayout {
     }
 
     public void closeModal() {
+        if (busy) {
+            return;
+        }
         modalLayer.getChildren().clear();
         modalLayer.setVisible(false);
     }
@@ -185,6 +203,57 @@ public class RootLayout {
         HBox actions = UtilsUI.row(8, UtilsUI.spacer(), cancel, ok);
         box.getChildren().addAll(UtilsUI.label(title, "h3"), UtilsUI.wrapped(message, "muted"), actions);
         openModal(box);
+    }
+
+    // ---------- Busy loader (backup / restore) ----------
+
+    /** Locks the whole UI behind a non-removable loader modal while a long database task runs.
+     *  View switching is blocked by the busy checks in show()/showFriendProfile(). */
+    public void runBusy(String message, Runnable task, Runnable onComplete) {
+        busy = true;
+        ProgressIndicator spinner = new ProgressIndicator();
+        spinner.setStyle("-fx-progress-color: -frm-primary;");
+        VBox box = new VBox(14,
+                spinner,
+                UtilsUI.label(message, "h3"),
+                UtilsUI.wrapped("Please wait — navigation is locked to keep your data safe.", "small", "muted"));
+        box.setAlignment(Pos.CENTER);
+        box.getStyleClass().add("modal");
+        box.setPadding(new Insets(30));
+        box.setMaxSize(380, Region.USE_PREF_SIZE);
+        openModal(box);
+
+        long started = System.nanoTime();
+        Thread worker = new Thread(() -> {
+            boolean failed = guarded(task);
+            long remaining = 800 - (System.nanoTime() - started) / 1_000_000;
+            try {
+                if (remaining > 0) {
+                    Thread.sleep(remaining);
+                }
+            } catch (InterruptedException ignored) {
+            }
+            Platform.runLater(() -> {
+                busy = false;
+                closeModal();
+                if (failed) {
+                    toast("The backup operation failed. Try again.");
+                }
+                onComplete.run();
+            });
+        });
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private static boolean guarded(Runnable task) {
+        try {
+            task.run();
+            return false;
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            return true;
+        }
     }
 
     // ---------- Toasts ----------

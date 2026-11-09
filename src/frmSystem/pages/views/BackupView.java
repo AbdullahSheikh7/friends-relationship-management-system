@@ -1,22 +1,32 @@
 package frmSystem.pages.views;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Locale;
+
+import frmSystem.db.SnapshotStack;
+import frmSystem.db.daos.BackupDAO;
 import frmSystem.pages.RootLayout;
 import frmSystem.ui.UtilsUI;
 
+import org.kordamp.ikonli.Ikon;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignD;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignR;
+
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.FileChooser;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-
-/** Backup & Export. Backup copies the SQLite file; Restore replaces it. */
+/** Backups managed entirely by the app: snapshot versions live inside the vault
+ *  database and restores follow the LIFO rule — only the newest version (stack
+ *  top) can be restored, and restoring pops it off. */
 public class BackupView {
-    private static final Path DB_FILE = Path.of("students.db");
+
+    private static final DateTimeFormatter STAMP =
+            DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm", Locale.ENGLISH);
 
     private final RootLayout app;
 
@@ -32,56 +42,97 @@ public class BackupView {
         Button notes = UtilsUI.button("Export Notes (Markdown)", "btn-soft");
         notes.setOnAction(_ -> Exports.notesMarkdown(app));
 
-        Button backup = UtilsUI.button("Back Up Now", "btn-primary");
-        backup.setOnAction(_ -> backupNow());
-        Button restore = UtilsUI.button("Restore From Backup", "btn-soft");
-        restore.setOnAction(_ -> restoreNow());
+        Button create = UtilsUI.button("Create Snapshot Now", "btn-primary");
+        create.setOnAction(_ -> app.confirm("Create a backup snapshot?",
+                "Your whole database is captured into the vault as a new version on the restore stack.",
+                "Create",
+                () -> app.runBusy("Saving snapshot...",
+                        () -> BackupDAO.insert("Snapshot — " + LocalDateTime.now().format(STAMP)),
+                        () -> {
+                            app.show(RootLayout.Page.BACKUP);
+                            app.toast("Snapshot pushed onto the stack. Newer versions restore first (LIFO).");
+                        })));
 
         VBox page = new VBox(14,
-                UtilsUI.col(4, UtilsUI.label("DATA & SYSTEM", "eyebrow", "c-primary"), UtilsUI.label("Backup & Export", "h1"),
-                        UtilsUI.label("Your data stays on this device. Keep a copy wherever you like.", "muted")),
-                UtilsUI.card(12, UtilsUI.label("Backup", "h3"),
-                        UtilsUI.wrapped("A backup is a full copy of your students.db file.", "muted"),
-                        UtilsUI.row(8, backup, restore)),
+                UtilsUI.col(4, UtilsUI.label("DATA & SYSTEM", "eyebrow", "c-primary"), UtilsUI.label("Backup & History", "h1"),
+                        UtilsUI.label("Versions live inside the vault — nothing to carry, nothing to misplace.", "muted")),
+                stackCard(create),
                 UtilsUI.card(12, UtilsUI.label("Export", "h3"),
-                        UtilsUI.wrapped("Save your data in plain formats you can open anywhere.", "muted"),
+                        UtilsUI.wrapped("Plain copies of your data you can open anywhere.", "muted"),
                         UtilsUI.row(8, friends, contacts, notes)));
         return RootLayout.scrollPage(UtilsUI.styled(page, "page"));
     }
 
-    private void backupNow() {
-        FileChooser chooser = new FileChooser();
-        chooser.setInitialFileName("students-backup.db");
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("SQLite database", "*.db"));
-        File target = chooser.showSaveDialog(app.stage());
-        if (target == null) {
-            return;
+    private Node stackCard(Button create) {
+        List<BackupDAO.Snapshot> snapshots = BackupDAO.findAll();
+
+        SnapshotStack stack = new SnapshotStack();
+        snapshots.forEach(s -> stack.push(s.id()));
+
+        VBox rows = new VBox(8);
+        if (snapshots.isEmpty()) {
+            rows.getChildren().add(UtilsUI.wrapped(
+                    "No snapshots yet. Create the first one — it becomes the top of the restore stack.", "muted"));
+        } else {
+            for (BackupDAO.Snapshot s : snapshots) {
+                boolean top = s.id() == stack.peek();
+                rows.getChildren().add(row(s, top));
+            }
         }
-        try {
-            Files.copy(DB_FILE, target.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            app.toast("Backup saved to " + target.getName() + ".");
-        } catch (IOException e) {
-            app.toast("Backup failed. Close the app and copy students.db manually.");
-        }
+
+        return UtilsUI.card(12,
+                UtilsUI.row(10,
+                        tile("tile-primary", MaterialDesignD.DATABASE, "ic-white"),
+                        UtilsUI.col(2,
+                                UtilsUI.label("Snapshot Versions  ·  " + snapshots.size() + " on the stack", "h4"),
+                                UtilsUI.wrapped("Restore always pops the newest version first — restoring a lower version requires popping every one above it.", "small", "muted")),
+                        UtilsUI.spacer(),
+                        create),
+                rows);
     }
 
-    private void restoreNow() {
-        FileChooser chooser = new FileChooser();
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("SQLite database", "*.db"));
-        File source = chooser.showOpenDialog(app.stage());
-        if (source == null) {
-            return;
+    private Node row(BackupDAO.Snapshot s, boolean top) {
+        VBox info = UtilsUI.col(1,
+                UtilsUI.label(s.label(), "semi"),
+                UtilsUI.label(s.createdAt() + "  ·  " + s.friends() + " friends  ·  " + s.notes() + " notes  ·  "
+                        + s.contacts() + " contacts  ·  " + s.gifts() + " gifts", "small", "muted"));
+
+        HBox row = UtilsUI.row(10,
+                tile(top ? "tile-primary" : "tile-info",
+                        top ? MaterialDesignR.RESTORE : MaterialDesignD.DATABASE_OUTLINE,
+                        top ? "ic-white" : "ic-muted"),
+                info,
+                UtilsUI.spacer());
+
+        if (top) {
+            row.getChildren().add(UtilsUI.pill("TOP OF STACK", "pill-primary", "pill-big"));
+            Button restore = UtilsUI.button("Restore", "btn-primary");
+            restore.setOnAction(_ -> confirmRestore(s));
+            row.getChildren().add(restore);
+        } else {
+            row.getChildren().add(UtilsUI.pill("Waiting for pops", "pill-strong"));
         }
-        app.confirm("Restore from " + source.getName() + "?",
-                "This replaces your current data. The app should be restarted afterwards.",
+        return row;
+    }
+
+    private Node tile(String kind, Ikon ikon, String colorClass) {
+        StackPane tile = UtilsUI.tile(kind);
+        tile.getChildren().add(UtilsUI.icon(ikon, 16, colorClass));
+        return tile;
+    }
+
+    private void confirmRestore(BackupDAO.Snapshot s) {
+        app.confirm("Restore from " + s.label() + "?",
+                "Your live data will be replaced by this version, which is then popped off the stack.",
                 "Restore",
-                () -> {
-                    try {
-                        Files.copy(source.toPath(), DB_FILE, StandardCopyOption.REPLACE_EXISTING);
-                        app.toast("Restored from " + source.getName() + ". Please restart the app.");
-                    } catch (IOException e) {
-                        app.toast("Restore failed. Make sure the app is closed and try again.");
-                    }
-                });
+                () -> app.runBusy("Restoring snapshot...",
+                        () -> {
+                            BackupDAO.restore(s.id());
+                            BackupDAO.delete(s.id());
+                        },
+                        () -> {
+                            app.show(RootLayout.Page.BACKUP);
+                            app.toast("Version popped from the stack. Your data now matches " + s.label() + ".");
+                        }));
     }
 }

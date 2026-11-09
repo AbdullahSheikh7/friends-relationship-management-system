@@ -100,6 +100,18 @@ public final class Database {
                     FOREIGN KEY (friend_id) REFERENCES friends(id) ON DELETE CASCADE
                 )""");
 
+            s.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS snapshots (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    label      TEXT    NOT NULL,
+                    created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+                    friends    INTEGER NOT NULL DEFAULT 0,
+                    notes      INTEGER NOT NULL DEFAULT 0,
+                    contacts   INTEGER NOT NULL DEFAULT 0,
+                    gifts      INTEGER NOT NULL DEFAULT 0,
+                    payload    TEXT    NOT NULL
+                )""");
+
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_friends_name  ON friends(name COLLATE NOCASE)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_notes_friend  ON notes(friend_id)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_notes_flag    ON notes(friend_id, flagged)");
