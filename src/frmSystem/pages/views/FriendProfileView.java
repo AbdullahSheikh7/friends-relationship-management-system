@@ -2,15 +2,18 @@ package frmSystem.pages.views;
 
 import frmSystem.db.daos.ContactEntryDAO;
 import frmSystem.db.daos.FriendDAO;
+import frmSystem.db.daos.GiftIdeaDAO;
 import frmSystem.db.daos.NoteDAO;
 import frmSystem.db.models.Cadence;
 import frmSystem.db.models.ContactEntry;
 import frmSystem.db.models.Friend;
+import frmSystem.db.models.GiftIdea;
 import frmSystem.db.models.Note;
 import frmSystem.pages.RootLayout;
 import frmSystem.ui.UtilsUI;
 
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignD;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignH;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP;
@@ -75,7 +78,7 @@ public class FriendProfileView {
         VBox left = new VBox(14, tabBar, tabContent);
         HBox.setHgrow(left, Priority.ALWAYS);
         left.setMinWidth(0);
-        VBox right = new VBox(14, rhythmCard(), infoCard(), hobbiesCard(), encountersCard());
+        VBox right = new VBox(14, rhythmCard(), infoCard(), hobbiesCard(), giftsCard(), encountersCard());
         right.setMinWidth(300);
         right.setMaxWidth(300);
         renderTab();
@@ -414,6 +417,33 @@ public class FriendProfileView {
         friend.getHobbies().forEach(h -> chips.getChildren().add(UtilsUI.pill(h, "pill-strong", "pill-big")));
         return UtilsUI.card(10, UtilsUI.row(8, UtilsUI.label("Hobbies & Passions", "h4")),
                 UtilsUI.wrapped("Personal interests to keep in mind for conversations and gifts:", "small", "muted"), chips, add);
+    }
+
+    private Node giftsCard() {
+        List<GiftIdea> gifts = GiftIdeaDAO.findByFriend(friendId);
+        Button add = UtilsUI.button("Add Gift Idea", "btn-soft");
+        add.setOnAction(_ -> new GiftDialog(app, friend).open());
+        VBox card = UtilsUI.card(8, UtilsUI.row(8, UtilsUI.label("Gift Ideas", "h4"), UtilsUI.spacer(), add));
+        gifts.forEach(gift -> {
+            CheckBox box = new CheckBox();
+            box.setSelected(gift.isPurchased());
+            box.setOnAction(_ -> {
+                gift.setPurchased(box.isSelected());
+                GiftIdeaDAO.update(gift);
+                app.refresh();
+            });
+            Button trash = UtilsUI.iconButton(MaterialDesignD.DELETE_OUTLINE, "icon-btn");
+            trash.setOnAction(_ -> app.confirm("Delete gift idea", "Remove \"" + gift.getItem() + "\" from " + friend.firstName() + "'s list?", "Delete", () -> {
+                GiftIdeaDAO.delete(gift.getId());
+                app.toast("Gift idea removed.");
+                app.refresh();
+            }));
+            card.getChildren().add(UtilsUI.styled(UtilsUI.row(8, box, UtilsUI.label(gift.getItem(), "small", "semi"), UtilsUI.spacer(), UtilsUI.label("$" + gift.getPriceUsd(), "small", "semi", "c-primary"), trash), "tint"));
+        });
+        if (gifts.isEmpty()) {
+            card.getChildren().add(UtilsUI.label("No gift ideas yet — birthdays come once a year.", "small", "muted"));
+        }
+        return card;
     }
 
     private Node encountersCard() {

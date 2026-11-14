@@ -37,6 +37,7 @@ public final class NoteDAO {
         } catch (SQLException e) {
             throw new RuntimeException("Insert failed", e);
         }
+        SearchIndexDAO.reindex(n.getFriendId());
     }
 
     // ---------- READ ----------
@@ -65,6 +66,7 @@ public final class NoteDAO {
     // ---------- UPDATE ----------
 
     public static void update(Note n) {
+        Long previousFriend = findById(n.getId()).map(Note::getFriendId).orElse(null);
         try (Connection c = Database.connect();
              PreparedStatement ps = c.prepareStatement(UPDATE)) {
             bind(ps, n);
@@ -73,16 +75,25 @@ public final class NoteDAO {
         } catch (SQLException e) {
             throw new RuntimeException("Update failed", e);
         }
+        SearchIndexDAO.reindex(n.getFriendId());
+        if (previousFriend != null && previousFriend != n.getFriendId()) {
+            SearchIndexDAO.reindex(previousFriend);
+        }
     }
 
     // ---------- DELETE ----------
 
     public static void delete(long id) {
+        Long friendId = findById(id).map(Note::getFriendId).orElse(null);
         execute("DELETE FROM notes WHERE id = ?", id);
+        if (friendId != null) {
+            SearchIndexDAO.reindex(friendId);
+        }
     }
 
     public static void deleteByFriend(long friendId) {
         execute("DELETE FROM notes WHERE friend_id = ?", friendId);
+        SearchIndexDAO.reindex(friendId);
     }
 
     // ---------- Helpers ----------

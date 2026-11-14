@@ -94,6 +94,7 @@ public final class BackupDAO {
             throw new RuntimeException("Snapshot read failed", e);
         }
         decodeIntoLiveTables(payload);
+        SearchIndexDAO.rebuildAll();
     }
 
     // ---------- Transactional rebuild ----------

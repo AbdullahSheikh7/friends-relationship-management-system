@@ -1,13 +1,13 @@
 package frmSystem.pages.views;
 
 import frmSystem.db.daos.FriendDAO;
-import frmSystem.db.daos.NoteDAO;
+import frmSystem.db.daos.SearchIndexDAO;
 import frmSystem.db.models.Friend;
 import frmSystem.db.models.FriendStatus;
-import frmSystem.db.models.Note;
 import frmSystem.pages.RootLayout;
 import frmSystem.ui.UtilsUI;
 
+import org.kordamp.ikonli.materialdesign2.MaterialDesignC;
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS;
 
 import javafx.geometry.Pos;
@@ -28,8 +28,9 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /** Friends Directory: table and card views with search, filters, bulk actions, and paging. */
 public class FriendsView {
@@ -43,6 +44,7 @@ public class FriendsView {
     private final HBox groupTabs = UtilsUI.styled(UtilsUI.row(2), "seg");
     private final Set<Long> selected = new HashSet<>();
     private final TextField search = new TextField();
+    private final Button clearSearch = UtilsUI.iconButton(MaterialDesignC.CLOSE, "icon-btn");
     private final ComboBox<String> closenessBox = new ComboBox<>();
     private final ComboBox<String> cadenceBox = new ComboBox<>();
     private final ComboBox<String> statusBox = new ComboBox<>();
@@ -73,12 +75,17 @@ public class FriendsView {
         HBox head = UtilsUI.row(10, title, UtilsUI.spacer(), viewTabs, export, add);
         head.setFillHeight(false);
 
-        search.setPromptText("Filter by name, notes, hobbies, job");
+        search.setPromptText("Search by name, notes, hobbies, job — press Enter");
         search.setPrefColumnCount(10);
-        search.textProperty().addListener((_, _, _) -> resetAndRender());
+        search.setOnAction(_ -> resetAndRender());
+        search.textProperty().addListener((_, _, _) -> updateClear());
         HBox.setHgrow(search, Priority.ALWAYS);
-        HBox searchBox = UtilsUI.styled(UtilsUI.row(6, UtilsUI.label("Filter:", "ic-muted"), search), "field-box");
+        clearSearch.setVisible(false);
+        clearSearch.setManaged(false);
+        clearSearch.setOnAction(_ -> clearSearch());
+        HBox searchBox = UtilsUI.styled(UtilsUI.row(6, UtilsUI.label("Filter:", "ic-muted"), search, clearSearch), "field-box");
         HBox.setHgrow(searchBox, Priority.ALWAYS);
+        updateClear();
         combo(closenessBox, List.of("Closeness: All", "Very close", "Close friend", "Casual"));
         combo(cadenceBox, List.of("Cadence: Any", "Weekly", "Bi-weekly", "Monthly", "Every 3 months", "Every 6 months"));
         combo(statusBox, List.of("Status: All", "Needs hello", "Due soon", "On track"));
@@ -103,6 +110,19 @@ public class FriendsView {
     private void resetAndRender() {
         pageIndex = 0;
         render();
+    }
+
+    /** The X appears once a query is typed; clearing wipes only the text search —
+     *  space chips, Active/Archived/Favorites tabs, and every combo stay untouched. */
+    private void clearSearch() {
+        search.setText("");
+        resetAndRender();
+    }
+
+    private void updateClear() {
+        boolean visible = !search.getText().isBlank();
+        clearSearch.setVisible(visible);
+        clearSearch.setManaged(visible);
     }
 
     private List<Friend> friends() {
@@ -167,23 +187,6 @@ public class FriendsView {
         return chip;
     }
 
-    private boolean matchesSearch(Friend f, String query) {
-        if (query.isEmpty()) {
-            return true;
-        }
-        String q = query.toLowerCase(Locale.ENGLISH);
-        if ((f.getName() + " " + f.getOccupation() + " " + f.getHeadline() + " " + String.join(" ", f.getHobbies()))
-                .toLowerCase(Locale.ENGLISH).contains(q)) {
-            return true;
-        }
-        for (Note note : NoteDAO.findByFriend(f.getId())) {
-            if ((note.getTitle() + " " + note.getBody()).toLowerCase(Locale.ENGLISH).contains(q)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private String statusName(FriendStatus status) {
         return switch (status) {
             case NEEDS_HELLO -> "Needs hello";
@@ -192,14 +195,13 @@ public class FriendsView {
         };
     }
 
+    /** Search hits are ordered by the hand-written QuickSort (DSA concept #5):
+     *  descending keyword frequency, name as tiebreak. Normal browsing keeps
+     *  the sort-combo ordering. */
     private List<Friend> filtered() {
         String query = search.getText().trim();
-        Comparator<Friend> order = switch (sortBox.getSelectionModel().getSelectedIndex()) {
-            case 1 -> Comparator.comparing(Friend::getName);
-            case 2 -> Comparator.comparing(Friend::getLastContacted).reversed();
-            default -> Comparator.comparing(Friend::daysUntilDue);
-        };
-        return friends().stream()
+        Map<Long, Integer> ranked = query.isEmpty() ? Map.of() : SearchIndexDAO.rank(query);
+        List<Friend> matches = friends().stream()
                 .filter(f -> switch (group) {
                     case "Favorites" -> f.isFavorite() && !f.isArchived();
                     case "Archived" -> f.isArchived();
@@ -209,9 +211,19 @@ public class FriendsView {
                 .filter(f -> closenessBox.getSelectionModel().getSelectedIndex() <= 0 || f.getCloseness().label().equals(closenessBox.getValue()))
                 .filter(f -> cadenceBox.getSelectionModel().getSelectedIndex() <= 0 || f.getCadence().label().equals(cadenceBox.getValue()))
                 .filter(f -> statusBox.getSelectionModel().getSelectedIndex() <= 0 || statusName(f.status()).equals(statusBox.getValue()))
-                .filter(f -> matchesSearch(f, query))
-                .sorted(order)
-                .toList();
+                .filter(f -> query.isEmpty() || ranked.containsKey(f.getId()))
+                .collect(Collectors.toList());
+        if (ranked.isEmpty()) {
+            matches.sort(switch (sortBox.getSelectionModel().getSelectedIndex()) {
+                case 1 -> Comparator.comparing(Friend::getName);
+                case 2 -> Comparator.comparing(Friend::getLastContacted).reversed();
+                default -> Comparator.comparing(Friend::daysUntilDue);
+            });
+        } else {
+            QuickSort.sort(matches, Comparator.comparing((Friend f) -> ranked.getOrDefault(f.getId(), 0)).reversed()
+                    .thenComparing(Friend::getName));
+        }
+        return List.copyOf(matches);
     }
 
     private void render() {

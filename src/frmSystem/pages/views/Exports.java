@@ -14,12 +14,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /** Saves data to files the user chooses. Nothing leaves the device. */
 final class Exports {
-    private static final DateTimeFormatter ICS_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private Exports() {
     }
@@ -74,16 +72,6 @@ final class Exports {
                     .append(note.getBody()).append("\n\n");
         }
         save(app, "frm-notes.md", "Markdown", "*.md", out.toString());
-    }
-
-    static void birthdaysIcs(RootLayout app) {
-        StringBuilder out = new StringBuilder("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//FRM//Birthdays//EN\r\n");
-        FriendDAO.findAll().stream().filter(f -> f.getBirthday() != null && !f.isArchived()).forEach(f ->
-                out.append("BEGIN:VEVENT\r\nUID:frm-birthday-").append(f.getId()).append("\r\nDTSTAMP:")
-                        .append(ICS_DATE.format(java.time.LocalDate.now())).append("T000000Z\r\nDTSTART;VALUE=DATE:")
-                        .append(ICS_DATE.format(f.nextBirthday())).append("\r\nRRULE:FREQ=YEARLY\r\nSUMMARY:")
-                        .append(f.getName()).append("'s birthday\r\nEND:VEVENT\r\n"));
-        save(app, "frm-birthdays.ics", "Calendar", "*.ics", out.append("END:VCALENDAR\r\n").toString());
     }
 
     private static void save(RootLayout app, String name, String kind, String pattern, String content) {

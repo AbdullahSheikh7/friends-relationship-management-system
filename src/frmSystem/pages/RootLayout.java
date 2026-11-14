@@ -5,6 +5,7 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import frmSystem.db.TestData;
 import frmSystem.db.daos.ContactEntryDAO;
 import frmSystem.db.daos.FriendDAO;
 import frmSystem.db.models.ContactEntry;
@@ -99,7 +100,16 @@ public class RootLayout {
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN), this::openAddFriend);
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.E, KeyCombination.SHORTCUT_DOWN), () -> openLogContact(null));
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.J, KeyCombination.SHORTCUT_DOWN), () -> new NoteDialog(this, null, null).open());
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN), this::seedDemoData);
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.ESCAPE), this::closeModal);
+    }
+
+    private void seedDemoData() {
+        confirm("Seed demo data", "Adds 7 demo friends with notes, check-ins, and gift ideas for testing.", "Seed data", () -> {
+            String summary = TestData.seed();
+            toast(summary);
+            refresh();
+        });
     }
 
     // ---------- Page navigation ----------
@@ -299,15 +309,12 @@ public class RootLayout {
             toast(waiting + " friends are waiting for a hello, whenever you're free.");
         });
 
-        Button profile = UtilsUI.button("Profile", "btn-soft");
-        profile.setOnAction(_ -> show(Page.SETTINGS));
-
         Region leftSpacer  = new Region();
         Region rightSpacer = new Region();
         HBox.setHgrow(leftSpacer,  Priority.ALWAYS);
         HBox.setHgrow(rightSpacer, Priority.ALWAYS);
 
-        HBox bar = new HBox(12, logo, title, leftSpacer, rightSpacer, bell, profile);
+        HBox bar = new HBox(12, logo, title, leftSpacer, rightSpacer, bell);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.getStyleClass().add("topbar");
         return bar;

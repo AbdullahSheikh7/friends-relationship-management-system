@@ -112,12 +112,32 @@ public final class Database {
                     payload    TEXT    NOT NULL
                 )""");
 
+            s.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS search_index (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    signature INTEGER NOT NULL,
+                    keyword   TEXT    NOT NULL,
+                    friend_id INTEGER NOT NULL,
+                    quantity  INTEGER NOT NULL DEFAULT 1,
+                    FOREIGN KEY (friend_id) REFERENCES friends(id) ON DELETE CASCADE
+                )""");
+
+            s.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS prep_steps (
+                    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                    text TEXT    NOT NULL,
+                    done INTEGER NOT NULL DEFAULT 0
+                )""");
+
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_friends_name  ON friends(name COLLATE NOCASE)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_notes_friend  ON notes(friend_id)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_notes_flag    ON notes(friend_id, flagged)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_ce_friend     ON contact_entries(friend_id)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_ce_date       ON contact_entries(date)");
             s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_gi_friend     ON gift_ideas(friend_id)");
+            s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_search_sig    ON search_index(signature)");
+            s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_search_kw     ON search_index(keyword)");
+            s.executeUpdate("CREATE INDEX IF NOT EXISTS idx_search_fid    ON search_index(friend_id)");
         }
     }
 

@@ -7,8 +7,9 @@ import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
 import frmSystem.db.Database;
+import frmSystem.db.daos.PrepStepDAO;
+import frmSystem.db.daos.SearchIndexDAO;
 import frmSystem.pages.RootLayout;
-
 
 public class Main extends Application {
 	@Override
@@ -16,6 +17,8 @@ public class Main extends Application {
 		try {
 	        Theme.loadFonts();
 	        Database.init();
+	        SearchIndexDAO.bootstrap();
+	        PrepStepDAO.bootstrap();
 	        RootLayout layout = new RootLayout(primaryStage);
 	        Rectangle2D screen = Screen.getPrimary().getVisualBounds();
 			Scene scene = new Scene(layout.root(),400,400);

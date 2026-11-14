@@ -19,7 +19,8 @@ public class HelpView {
                         qa("Can I log a past catch-up?", "Yes. Use Quick Log Contact and pick the date."),
                         qa("Where is my data?", "Only on this device. FRM never sends anything over the network.")),
                 UtilsUI.card(10, UtilsUI.label("Keyboard shortcuts", "h3"), shortcut("Ctrl+N", "Add a friend"),
-                        shortcut("Ctrl+E", "Quick log contact"), shortcut("Ctrl+J", "New note"), shortcut("Esc", "Close a window")),
+                        shortcut("Ctrl+E", "Quick log contact"), shortcut("Ctrl+J", "New note"), shortcut("Esc", "Close a window"),
+                        shortcut("Ctrl+Shift+D", "Seed demo data for testing")),
                 UtilsUI.card(6, UtilsUI.label("About", "h3"), UtilsUI.label("FRM - Friends Management System, version 1.2.0", "muted"), UtilsUI.label("Salim Habib University Project", "muted")));
         return RootLayout.scrollPage(UtilsUI.styled(page, "page"));
     }

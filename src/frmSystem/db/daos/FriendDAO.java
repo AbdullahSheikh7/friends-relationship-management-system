@@ -46,6 +46,7 @@ public final class FriendDAO {
         } catch (SQLException e) {
             throw new RuntimeException("Insert failed", e);
         }
+        SearchIndexDAO.reindex(f.getId());
     }
 
     // ---------- READ ----------
@@ -81,6 +82,7 @@ public final class FriendDAO {
         } catch (SQLException e) {
             throw new RuntimeException("Update failed", e);
         }
+        SearchIndexDAO.reindex(f.getId());
     }
 
     public static void markContacted(long id, LocalDate date) {
@@ -92,6 +94,7 @@ public final class FriendDAO {
 
     public static void delete(long id) {
         execute("DELETE FROM friends WHERE id = ?", id);
+        SearchIndexDAO.deleteForFriend(id);
     }
 
     // ---------- Helpers ----------

@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/** The six-step Add a Friend flow, also used for editing. Moving between steps keeps what was typed. */
+/** The six-step Add a Friend flow, plus a single-form editor for profiles. */
 public class AddFriendDialog {
     private static final String[] STEPS = {"Closeness", "Space", "Basics", "Interests", "Rhythm", "First Note"};
     private static final String[] NEXT = {"Space & Context", "Basics", "Interests", "Rhythm", "First Note", ""};
@@ -85,11 +85,11 @@ public class AddFriendDialog {
         Button close = UtilsUI.iconButton(MaterialDesignC.CLOSE, "icon-btn");
         close.setOnAction(_ -> app.closeModal());
         HBox titleRow = UtilsUI.row(8, UtilsUI.col(2,
-                UtilsUI.bullet("FRM GUIDED RELATIONSHIP SETUP", "eyebrow", "c-primary"),
+                UtilsUI.bullet(editing == null ? "FRM GUIDED RELATIONSHIP SETUP" : "FRM FRIEND DETAILS", "eyebrow", "c-primary"),
                 UtilsUI.label(editing == null ? "Add a Friend" : "Edit " + editing.getName(), "h2"),
-                UtilsUI.label("No pressure, just gentle ways to remember the people who matter.", "muted")),
+                UtilsUI.label(editing == null ? "No pressure, just gentle ways to remember the people who matter." : "Change anything below and press Save Changes.", "muted")),
                 UtilsUI.spacer(), close);
-        VBox top = new VBox(14, titleRow, stepBar);
+        VBox top = editing == null ? new VBox(14, titleRow, stepBar) : new VBox(14, titleRow);
         top.setPadding(new Insets(20, 22, 10, 22));
 
         ScrollPane scroll = new ScrollPane(body);
@@ -107,6 +107,10 @@ public class AddFriendDialog {
     }
 
     private void render() {
+        if (editing != null) {
+            renderEdit();
+            return;
+        }
         stepBar.getChildren().clear();
         for (int i = 0; i < STEPS.length; i++) {
             Region bar = UtilsUI.styled(new Region(), "step-bar");
@@ -144,6 +148,24 @@ public class AddFriendDialog {
         renderFooter();
     }
 
+    /** Edit mode: every section on one form, no wizard steps, one Save button. */
+    private void renderEdit() {
+        body.getChildren().setAll(UtilsUI.col(16,
+                closenessStep(), spaceStep(), basicsStep(), interestsStep(), rhythmStep()));
+        error.setText("");
+        body.getChildren().add(error);
+
+        Button cancel = UtilsUI.button("Cancel", "btn-plain");
+        cancel.setOnAction(_ -> app.closeModal());
+        Button save = UtilsUI.button("Save Changes", "btn-primary");
+        save.setOnAction(_ -> {
+            if (validate()) {
+                save();
+            }
+        });
+        footer.getChildren().setAll(cancel, UtilsUI.spacer(), save);
+    }
+
     private void renderFooter() {
         Button cancel = UtilsUI.button("Cancel", "btn-plain");
         cancel.setOnAction(_ -> app.closeModal());
@@ -154,7 +176,7 @@ public class AddFriendDialog {
             render();
         });
         boolean last = step == STEPS.length - 1;
-        Button next = UtilsUI.button(last ? (editing == null ? "Save Friend" : "Save Changes") : "Next: " + NEXT[step], "btn-primary");
+        Button next = UtilsUI.button(last ? "Save Friend" : "Next: " + NEXT[step], "btn-primary");
         next.setOnAction(_ -> {
             if (!validate()) {
                 return;
@@ -171,7 +193,7 @@ public class AddFriendDialog {
 
     private boolean validate() {
         String typed = name.getText().trim();
-        if (step >= 2) {
+        if (step >= 2 || editing != null) {
             if (typed.isEmpty()) {
                 return fail("Please add a name or nickname.");
             }

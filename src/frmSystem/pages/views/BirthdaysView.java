@@ -2,23 +2,29 @@ package frmSystem.pages.views;
 
 import frmSystem.db.daos.FriendDAO;
 import frmSystem.db.daos.GiftIdeaDAO;
+import frmSystem.db.daos.PrepStepDAO;
 import frmSystem.db.models.Friend;
 import frmSystem.db.models.GiftIdea;
+import frmSystem.db.models.PrepStep;
 import frmSystem.pages.RootLayout;
 import frmSystem.ui.UtilsUI;
 
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignD;
 
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -46,16 +52,11 @@ public class BirthdaysView {
     private final VBox calendarCard = UtilsUI.card(10);
     private final ComboBox<String> spaceBox = new ComboBox<>();
     private final ComboBox<String> horizonBox = new ComboBox<>();
-    private final Map<String, Boolean> checklist = new LinkedHashMap<>();
     private YearMonth month = YearMonth.now();
     private boolean grid;
 
     public BirthdaysView(RootLayout app) {
         this.app = app;
-        checklist.put("Ask discreetly about a quiet dinner or a gathering", true);
-        checklist.put("Create a shared group chat for the college circle", true);
-        checklist.put("Order a keepsake (allow 10 days for engraving)", false);
-        checklist.put("Compile a photo memory book from the archive", false);
     }
 
     public Node build() {
@@ -65,11 +66,7 @@ public class BirthdaysView {
         VBox title = UtilsUI.col(4, crumbs, UtilsUI.label("Birthdays & Milestones", "h1"),
                 UtilsUI.wrapped("Never be caught by surprise. Thoughtful reminders without artificial social-media pressure or productivity guilt.", "muted"));
         title.setMaxWidth(560);
-        Button sync = UtilsUI.button("Sync .ICS", "btn-surface");
-        sync.setOnAction(_ -> Exports.birthdaysIcs(app));
-        Button add = UtilsUI.button("Add Date / Milestone", "btn-primary");
-        add.setOnAction(_ -> app.toast("Add a birthday from the friend's Edit Profile screen."));
-        HBox head = UtilsUI.row(10, title, UtilsUI.spacer(), sync, add);
+        HBox head = UtilsUI.row(10, title);
         head.setAlignment(Pos.BOTTOM_LEFT);
 
         renderMode();
@@ -81,7 +78,7 @@ public class BirthdaysView {
         horizonBox.setOnAction(_ -> renderMain());
         HBox filters = UtilsUI.row(10, modeTabs, spaceBox, horizonBox);
 
-        VBox right = new VBox(14, calendarCard, guideCard(), giftsCard(), notificationsCard());
+        VBox right = new VBox(14, calendarCard, guideCard(), giftsCard());
         right.setMinWidth(300);
         right.setMaxWidth(300);
         renderCalendar();
@@ -338,39 +335,79 @@ public class BirthdaysView {
         List<Friend> milestones = withBirthdays().stream().filter(f -> f.turningAge() % 10 == 0).toList();
         String who = milestones.isEmpty() ? "your friend" : milestones.get(0).firstName();
         VBox items = new VBox(8);
-        checklist.forEach((text, done) -> items.getChildren().add(checklistItem(text, done)));
+        for (PrepStep step : PrepStepDAO.findAll()) {
+            items.getChildren().add(stepRow(step));
+        }
         Button add = UtilsUI.button("+ Add preparation step", "btn-soft");
         add.setMaxWidth(Double.MAX_VALUE);
-        add.setOnAction(_ -> app.toast("Preparation steps will save once persistence is enabled."));
+        add.setOnAction(_ -> addStepDialog());
         return UtilsUI.card(10, UtilsUI.row(8, UtilsUI.col(1, UtilsUI.label("Milestone Preparation Guide", "h4"), UtilsUI.label("For big birthdays (30th, 40th, weddings)", "tiny", "semi", "muted"))),
                 UtilsUI.wrapped("Entering a new decade is a significant emotional threshold. Here is a thoughtful checklist for " + who + "'s upcoming milestone:", "small", "muted"),
                 items, add);
     }
 
-    private Node checklistItem(String text, boolean done) {
+    private Node stepRow(PrepStep step) {
         CheckBox box = new CheckBox();
-        box.setSelected(done);
-        Label label = UtilsUI.wrapped(text, "small");
-        if (done) {
+        box.setSelected(step.isDone());
+        Label label = UtilsUI.wrapped(step.getText(), "small");
+        if (step.isDone()) {
             label.getStyleClass().add("strike");
         }
         box.setOnAction(_ -> {
-            checklist.put(text, box.isSelected());
+            PrepStepDAO.setDone(step.getId(), box.isSelected());
             if (box.isSelected()) {
                 label.getStyleClass().add("strike");
             } else {
                 label.getStyleClass().remove("strike");
             }
         });
-        HBox row = UtilsUI.row(8, box, label);
+        Button trash = UtilsUI.iconButton(MaterialDesignD.DELETE_OUTLINE, "icon-btn");
+        trash.setOnAction(_ -> app.confirm("Delete preparation step", "Remove \"" + step.getText() + "\" from the guide?", "Delete", () -> {
+            PrepStepDAO.delete(step.getId());
+            app.toast("Preparation step removed.");
+            app.refresh();
+        }));
+        HBox row = UtilsUI.row(8, box, label, UtilsUI.spacer(), trash);
         row.setAlignment(Pos.TOP_LEFT);
         return row;
+    }
+
+    private void addStepDialog() {
+        TextField input = new TextField();
+        input.setPromptText("e.g. Reserve a table at their favorite place");
+        input.getStyleClass().add("field");
+        Label error = UtilsUI.label("", "field-error");
+        Button cancel = UtilsUI.button("Cancel", "btn-soft");
+        cancel.setOnAction(_ -> app.closeModal());
+        Button save = UtilsUI.button("Add Step", "btn-primary");
+        save.setOnAction(_ -> {
+            String text = input.getText().trim();
+            if (text.isEmpty()) {
+                error.setText("Please write the step first.");
+                return;
+            }
+            PrepStepDAO.insert(text);
+            app.closeModal();
+            app.toast("Preparation step added.");
+            app.refresh();
+        });
+        Node actions = UtilsUI.row(8, UtilsUI.spacer(), cancel, save);
+        VBox modal = new VBox(10, UtilsUI.label("New Preparation Step", "h2"), input, error, actions);
+        modal.getStyleClass().add("modal");
+        modal.setPadding(new Insets(22));
+        modal.setMaxSize(460, Region.USE_PREF_SIZE);
+        app.openModal(modal);
     }
 
     private Node giftsCard() {
         List<GiftIdea> gifts = GiftIdeaDAO.findAll();
         long open = gifts.stream().filter(g -> !g.isPurchased()).count();
-        VBox card = UtilsUI.card(8, UtilsUI.row(8, UtilsUI.label("Gift Ideas Registry", "h4"), UtilsUI.spacer(), UtilsUI.pill(open + " Unpurchased", "pill-mint")));
+        Button add = UtilsUI.button("Add Gift Idea", "btn-soft");
+        add.setOnAction(_ -> new GiftDialog(app, null).open());
+        VBox card = UtilsUI.card(8, UtilsUI.row(8, UtilsUI.label("Gift Ideas Registry", "h4"), UtilsUI.spacer(), add, UtilsUI.pill(open + " Unpurchased", "pill-mint")));
+        if (gifts.isEmpty()) {
+            card.getChildren().add(UtilsUI.label("No gift ideas yet — add the first one.", "small", "muted"));
+        }
         gifts.forEach(g -> {
             CheckBox box = new CheckBox();
             box.setSelected(g.isPurchased());
@@ -381,22 +418,14 @@ public class BirthdaysView {
             });
             String owner = FriendDAO.findById(g.getFriendId()).map(f -> f.getName() + " (" + UtilsUI.shortDate(f.nextBirthday()) + ")").orElse("");
             VBox text = UtilsUI.col(1, UtilsUI.label(g.getItem(), "small", "semi"), UtilsUI.label("For " + owner, "tiny", "muted"));
-            card.getChildren().add(UtilsUI.styled(UtilsUI.row(8, box, text, UtilsUI.spacer(), UtilsUI.label("$" + g.getPriceUsd(), "small", "semi", "c-primary")), "tint"));
+            Button trash = UtilsUI.iconButton(MaterialDesignD.DELETE_OUTLINE, "icon-btn");
+            trash.setOnAction(_ -> app.confirm("Delete gift idea", "Remove \"" + g.getItem() + "\" from the registry?", "Delete", () -> {
+                GiftIdeaDAO.delete(g.getId());
+                app.toast("Gift idea removed.");
+                app.refresh();
+            }));
+            card.getChildren().add(UtilsUI.styled(UtilsUI.row(8, box, text, UtilsUI.spacer(), UtilsUI.label("$" + g.getPriceUsd(), "small", "semi", "c-primary"), trash), "tint"));
         });
         return card;
-    }
-
-    private Node notificationsCard() {
-        VBox card = UtilsUI.card(8, UtilsUI.row(8, UtilsUI.label("Quiet Notification Cadence", "h4")),
-                UtilsUI.wrapped("Desktop notifications appear gently without audio chimes or invasive banners.", "small", "muted"));
-        card.getChildren().addAll(toggle("14 Days Ahead", "For ordering physical gifts", true), toggle("3 Days Ahead", "Planning message or lunch", true),
-                toggle("Day of Celebration", "Morning quiet desk reminder", true), toggle("Audio Chimes", "Muted by default", false));
-        return card;
-    }
-
-    private Node toggle(String title, String description, boolean on) {
-        CheckBox box = new CheckBox();
-        box.setSelected(on);
-        return UtilsUI.styled(UtilsUI.row(8, UtilsUI.col(1, UtilsUI.label(title, "small", "semi"), UtilsUI.label(description, "tiny", "muted")), UtilsUI.spacer(), box), "tint");
     }
 }
