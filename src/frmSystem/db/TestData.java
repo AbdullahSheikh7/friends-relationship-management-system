@@ -50,7 +50,7 @@ public final class TestData {
                 "Feeds half the neighborhood", "Seattle", "he/him",
                 "September 2022", "marcus.chen@example.com", "555-0102", "@chefmarcus",
                 "Work", Closeness.CLOSE, Cadence.BI_WEEKLY,
-                today.minusDays(10), today.plusMonths(3).plusDays(4), true, false,
+                today.minusDays(10), LocalDate.of(1996, 2, 19), true, false,
                 List.of("Cooking", "Hiking", "Bouldering"));
         note(marcus, "Dinner party plan", "Cooking a tasting menu for the team. Maybe a cooking class together next month.", false, List.of("food", "work"));
         entry(marcus, today.minusDays(10), ContactType.IN_PERSON, "2 h", "Ember Kitchen visit", "Seattle", "Ate the seasonal menu, talked about a cooking collab.", List.of("food"));
@@ -77,7 +77,7 @@ public final class TestData {
                 "Shoots film on weekends", "Austin", "he/him",
                 "June 2023", "daniel.okafor@example.com", "555-0104", "@danoka",
                 "Neighborhood", Closeness.CASUAL, Cadence.EVERY_3_MONTHS,
-                today.minusDays(20), today.plusMonths(2).plusDays(8), false, false,
+                today.minusDays(20), LocalDate.of(1999, 1, 23), false, false,
                 List.of("Photography", "Cycling", "Film"));
         note(daniel, "Photo walk", "Photo walk downtown planned. He edits photography prints in the garage studio.", false, List.of("photography"));
         entry(daniel, today.minusDays(20), ContactType.IN_PERSON, "3 h", "Garage studio visit", "Austin", "Printed two photography series for the spring fair.", List.of("art"));
@@ -101,7 +101,7 @@ public final class TestData {
                 "Grills for the whole family", "El Paso", "he/him",
                 "Forever", "tomas.rivera@example.com", "555-0106", "@tomasriv",
                 "Family Circle", Closeness.VERY_CLOSE, Cadence.MONTHLY,
-                today.minusDays(15), today.plusMonths(1).plusDays(20), false, true,
+                today.minusDays(15), LocalDate.of(1994, 1, 4), false, true,
                 List.of("Football", "Grilling", "Chess"));
         note(tomas, "Thanksgiving menu", "Grilling plan for Thanksgiving. Bring the chess board for after dinner.", false, List.of("family", "food"));
         entry(tomas, today.minusDays(15), ContactType.IN_PERSON, "4 h", "Family dinner", "El Paso", "Sunday football and grilling.", List.of("family"));
@@ -113,7 +113,7 @@ public final class TestData {
                 "Never misses a karaoke night", "Manchester", "she/her",
                 "August 2024", "nadia.rahman@example.com", "555-0107", "@nadiaplays",
                 "Online & Gaming", Closeness.CASUAL, Cadence.WEEKLY,
-                today.minusDays(1), today.plusMonths(4).plusDays(2), false, false,
+                today.minusDays(1), LocalDate.of(2001, 3, 17), false, false,
                 List.of("Gaming", "Karaoke", "Guitar"));
         note(nadia, "Co-op night", "Co-op campaign finished. She wants to try the new guitar rhythm pack next.", false, List.of("gaming"));
         entry(nadia, today.minusDays(1), ContactType.CHAT, "50 min", "Co-op session", "", "Finished the campaign, planned the next one.", List.of("gaming"));

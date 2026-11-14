@@ -49,6 +49,7 @@ public class AddFriendDialog {
     private final TextField name = new TextField();
     private final TextField since = new TextField();
     private final TextField occupation = new TextField();
+    private final TextField headline = new TextField();
     private final TextField city = new TextField();
     private final TextField phone = new TextField();
     private final TextField email = new TextField();
@@ -72,6 +73,7 @@ public class AddFriendDialog {
             name.setText(editing.getName());
             since.setText(editing.getFriendsSince());
             occupation.setText(editing.getOccupation());
+            headline.setText(editing.getHeadline());
             city.setText(editing.getCity());
             phone.setText(editing.getPhone());
             email.setText(editing.getEmail());
@@ -227,9 +229,8 @@ public class AddFriendDialog {
         friend.setCadence(cadence);
         friend.setFriendsSince(since.getText().trim());
         friend.setOccupation(occupation.getText().trim());
-        if (friend.getHeadline().isEmpty() || editing != null) {
-            friend.setHeadline(occupation.getText().trim());
-        }
+        String headlineText = headline.getText().trim();
+        friend.setHeadline(headlineText.isEmpty() ? occupation.getText().trim() : headlineText);
         friend.setCity(city.getText().trim());
         friend.setPhone(phone.getText().trim());
         friend.setEmail(email.getText().trim());
@@ -344,7 +345,7 @@ public class AddFriendDialog {
         birthday.setMaxWidth(Double.MAX_VALUE);
         grid.addRow(0, field("Friend's Name *", "Preferred name", input(name, "e.g. Elena Rostova")),
                 field("Connected Since", "Approximate", input(since, "e.g. College 2018")));
-        grid.addRow(1, field("What they do / Current passion", "", input(occupation, "e.g. Ceramic Sculptor")),
+        grid.addRow(1, field("Occupation / What they do", "Job or current passion", input(occupation, "e.g. Ceramic Sculptor")),
                 field("Last Contacted", "Auto-seeded", lastContacted));
         grid.addRow(2, field("Birthday", "Optional", birthday), field("City", "Optional", input(city, "e.g. Karachi")));
         grid.addRow(3, field("Phone", "Optional, never used for messaging", input(phone, "")),
@@ -352,7 +353,9 @@ public class AddFriendDialog {
         ColumnConstraints half = new ColumnConstraints();
         half.setPercentWidth(50);
         grid.getColumnConstraints().addAll(half, half);
-        return UtilsUI.col(12, sectionTitle("Friend Basics", "Only the name is required"), grid);
+        headline.setMaxWidth(Double.MAX_VALUE);
+        return UtilsUI.col(12, sectionTitle("Friend Basics", "Only the name is required"), grid,
+                field("Headline", "One-line tagline shown under their name", input(headline, "e.g. Ceramic artist and sunset chaser")));
     }
 
     private Node interestsStep() {
