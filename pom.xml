@@ -42,8 +42,7 @@
       </resource>
     </resources>
 
-    <plugins>
-      <plugin>
+    <plugins>    <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
@@ -55,7 +54,7 @@
             <artifactId>javafx-maven-plugin</artifactId>
             <version>0.0.8</version>
             <configuration>
-                <mainClass>app.MainApp</mainClass>
+                <mainClass>frmSystem.Main</mainClass>
             </configuration>
         </plugin>
     </plugins>
